@@ -14,20 +14,15 @@ const validateRecipe = [
     check('tiempoPreparacion').isString().withMessage('El tiempo debe ser un texto.')
         .notEmpty().withMessage('El tiempo es obligatorio.'),
 
-    // check('imagen').optional().isURL().withMessage('La imagen debe ser una URL válida.'),
     check('imagen').optional().isString().withMessage('La imagen debe ser texto.'),
 
-    // --- NUEVA VALIDACIÓN PARA AUTOR (OBJETO) ---
     check('autor.nombre').isString().withMessage('El nombre del autor debe ser un texto.')
         .notEmpty().withMessage('El nombre del autor es obligatorio.'),
-    // check('autor.avatar').optional().isURL().withMessage('El avatar debe ser una URL válida.'),
     check('autor.avatar').optional().isString().withMessage('El avatar debe ser texto.'),
-    // --------------------------------------------
 
     check('ingredientes').isArray().withMessage('Los ingredientes deben ser una lista.')
         .notEmpty().withMessage('Se requiere al menos un ingrediente.'),
-
-    // Validamos que cada elemento dentro del array 'ingredientes' contenga 'nombre' y 'cantidad'
+        
     check('ingredientes.*.nombre').isString().withMessage('El nombre del ingrediente debe ser un texto.')
         .notEmpty().withMessage('El nombre del ingrediente es obligatorio.'),
     check('ingredientes.*.cantidad').isString().withMessage('La cantidad del ingrediente debe ser un texto.')
@@ -147,6 +142,29 @@ module.exports = (db) => {
         try {
             await db.collection('recipes').doc(req.params.id).delete();
             res.json({ message: 'Receta eliminada' });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // --------------------------------------------------------------------------------------------------
+    // GET /api/recipes/stats/categories - Categorías conteo
+    router.get('/stats/categories', async (req, res) => {
+        try {
+            const snapshot = await db.collection('recipes').get();
+            const categoryMap = {};
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const cat = data.category || data.categoria || "Otros";
+                if (!categoryMap[cat]) {
+                    categoryMap[cat] = { title: cat, count: 0, image: data.imageUrl };
+                }
+                categoryMap[cat].count++;
+            });
+
+            const categories = Object.values(categoryMap);
+            res.json(categories);
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

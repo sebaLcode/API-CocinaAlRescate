@@ -93,6 +93,39 @@ module.exports = (db) => {
 
     // ------------------------------------------------------------------------------------------
 
+
+    // GET /api/auth/users - Obtener todos los usuarios
+    router.get('/users', async (req, res) => {
+        try {
+            const snapshot = await db.collection('users').get();
+            const users = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            res.json(users);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+    
+    // DELETE /api/auth/users/:id - Eliminar usuario y sus recetas
+    router.delete('/users/:id', async (req, res) => {
+        try {
+            const { id } = req.params;
+            await db.collection('users').doc(id).delete();
+            const recipesQuery = await db.collection('recipes').where('autor.id', '==', id).get();
+            const batch = db.batch();
+            recipesQuery.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+
+            res.json({ message: 'Usuario y sus recetas eliminados' });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     // PUT /api/auth/profile/:id - Actualizar Perfil y propagar cambios a Recetas
     router.put('/profile/:id', validateUpdateProfile, handleErrors, async (req, res) => {
         try {
@@ -140,9 +173,6 @@ module.exports = (db) => {
             }
 
             await batch.commit();
-
-            // --- FIN ---
-
             res.json({ message: 'Perfil y recetas actualizados correctamente', id, ...updates });
 
         } catch (error) {
